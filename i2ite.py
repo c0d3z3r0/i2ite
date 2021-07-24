@@ -129,11 +129,12 @@ def connected(func, *args, **kwargs):
 
 class I2ITE:
 
-    def __init__(self, url):
+    def __init__(self, url, frequency=2000000):
         self.url = url
         self.con = None
         self._flash_enabled = False
         self.connected = False
+        self.frequency = frequency
 
         self._dumpable = ['dbgr', 'xram']
         for d in self._dumpable:
@@ -171,7 +172,7 @@ class I2ITE:
         self._send_dbgr_waveform()
 
         self.con = I2cController()
-        self.con.configure(self.url, frequency=400000)
+        self.con.configure(self.url, frequency=self.frequency)
         self.con.ftdi.set_latency_timer(2)
 
         try:
@@ -289,6 +290,7 @@ def main():
         argp = ArgumentParser("I2ITE", description=__description__)
 
         argp.add_argument('device', nargs='?', default='ftdi:///?', help='ftdi url')
+        argp.add_argument('--freq', default=2000000, help='I2C frequency')
         argp.add_argument('-d',  action='store_true', help='dump all XDATA')
        #argp.add_argument('-df', action='store_true', help='dump flash')
         rw = argp.add_argument_group()
