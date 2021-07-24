@@ -173,7 +173,7 @@ class I2ITE:
 
         self.con = I2cController()
         self.con.configure(self.url, frequency=self.frequency)
-        self.con.ftdi.set_latency_timer(2)
+        self.con.ftdi.set_latency_timer(1)
 
         try:
             self.connected = True
