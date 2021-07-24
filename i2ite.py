@@ -19,7 +19,6 @@ from pyftdi.gpio import GpioAsyncController
 # - implement eflash reading/writing
 # - implement SPI flash reading/writing
 # - implement ec reset
-# - reverse engineer SFR, IRAM access
 # - reverse engineer ec instruction stepping for debugging
 
 '''
@@ -91,6 +90,8 @@ class ADDR:
         ETWCTRL             = 0x1f05
         ETWCTRL_EWDSCEN     = 1 << 5
         ETWCTRL_EWDSCMS     = 1 << 4
+        SFR                 = 0x8000
+        IRAM                = 0xc000
 
 
 def hexdump(read_func, start, end):
@@ -136,7 +137,7 @@ class I2ITE:
         self.connected = False
         self.frequency = frequency
 
-        self._dumpable = ['dbgr', 'xram']
+        self._dumpable = ['dbgr', 'xram', 'sfr', 'iram']
         for d in self._dumpable:
             read_func = getattr(self, f'{d}_read')
             setattr(self, f'{d}_dump', partial(hexdump, read_func))
@@ -239,6 +240,42 @@ class I2ITE:
         self.dbgr_write(ADDR.DBGR.XADDRH, addr >> 8)
         self.dbgr_write(ADDR.DBGR.XADDRL, addr & 0xff)
         self.dbgr_write(ADDR.DBGR.XDATA,  data)
+
+    @connected
+    def sfr_read(self, addr):
+        if not 0x80 <= addr <= 0xff:
+            raise(Exception("Error: SFR address invalid. Range is 0x80 <= addr <= 0xff"))
+
+        addr += ADDR.XRAM.SFR
+        data = self.xram_read(addr)
+
+        return data
+
+    @connected
+    def sfr_write(self, addr, data):
+        if not 0x80 <= addr <= 0xff:
+            raise(Exception("Error: SFR address invalid. Range is 0x80 <= addr <= 0xff"))
+
+        addr += ADDR.XRAM.SFR
+        self.xram_write(addr, data)
+
+    @connected
+    def iram_read(self, addr):
+        if addr > 0xff:
+            raise(Exception("Error: IRAM address invalid. Range is 0x00 < addr < 0xff"))
+
+        addr += ADDR.XRAM.IRAM
+        data = self.xram_read(addr)
+
+        return data
+
+    @connected
+    def iram_write(self, addr, data):
+        if addr > 0xff:
+            raise(Exception("Error: IRAM address invalid. Range is 0x00 < addr < 0xff"))
+
+        addr += ADDR.XRAM.IRAM
+        self.xram_write(addr, data)
 
     @connected
     def disable_watchdog(self):
