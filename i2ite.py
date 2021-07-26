@@ -201,6 +201,9 @@ class I2ITE:
     def connect(self):
         self.open()
 
+    def relax(self):
+        self.con._do_epilog()
+
     @property
     @connected
     def chipid(self):
