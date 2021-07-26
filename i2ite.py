@@ -109,7 +109,8 @@ def hexdump(self, read_func, start, end):
             print(" " * (alen + 2), end="")
             print("-- -- -- --  -- -- -- --  -- -- -- --  -- -- -- --")
 
-        data = [read_func(addr, relax=False) for addr in range(yaddr, yaddr + 0x10)]
+        data = [read_func(addr, relax=False, keep_addrh=True)
+                for addr in range(yaddr, yaddr + 0x10)]
 
         # cut in chunks of 4 byte each
         zip_data = zip(*[iter(data)]*4)
@@ -150,6 +151,7 @@ class I2ITE:
         self._flash_enabled = False
         self.connected = False
         self.frequency = frequency
+        self._xaddrh = -1
 
         self._dumpable = ['dbgr', 'xram', 'sfr', 'iram']
         for d in self._dumpable:
@@ -248,8 +250,14 @@ class I2ITE:
 
     @connected
     @limit_addr(0x0000, 0xffff)
-    def xram_read(self, addr, relax=True):
-        self.dbgr_write(ADDR.DBGR.XADDRH, addr >> 8, relax=False)
+    def xram_read(self, addr, relax=True, keep_addrh=False):
+        addrh = addr >> 8 & 0xff
+        # save transfers by skipping equal values for addrh
+        # to speed up blockwise dumping
+        if not keep_addrh or addrh != self._xaddrh:
+            self._xaddrh = addrh
+            self.dbgr_write(ADDR.DBGR.XADDRH, addrh, relax=False)
+
         self.dbgr_write(ADDR.DBGR.XADDRL, addr & 0xff, relax=False)
         data = self.dbgr_read(ADDR.DBGR.XDATA, relax=relax)
 
