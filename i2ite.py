@@ -296,7 +296,7 @@ class I2ITE:
     @connected
     def ecindar_read(self, addr):
         self.ecindar_addr(addr)
-        return self.dbgr_write(ADDR.DBGR.ECINDDR)
+        return self.dbgr_read(ADDR.DBGR.ECINDDR)
 
     @connected
     def ecindar_write(self, addr, data):
