@@ -228,6 +228,7 @@ class I2ITE:
         return flash_size
 
     @connected
+    @limit_addr(0x00, 0xff)
     def dbgr_read(self, addr):
         self.con.write(ADDR.I2C.CMD, [addr])
         data = self.con.read(ADDR.I2C.DATA)[0]
@@ -235,11 +236,13 @@ class I2ITE:
         return data
 
     @connected
+    @limit_addr(0x00, 0xff)
     def dbgr_write(self, addr, data):
         self.con.write(ADDR.I2C.CMD, [addr])
         self.con.write(ADDR.I2C.DATA, [data])
 
     @connected
+    @limit_addr(0x0000, 0xffff)
     def xram_read(self, addr):
         self.dbgr_write(ADDR.DBGR.XADDRH, addr >> 8)
         self.dbgr_write(ADDR.DBGR.XADDRL, addr & 0xff)
@@ -248,6 +251,7 @@ class I2ITE:
         return data
 
     @connected
+    @limit_addr(0x0000, 0xffff)
     def xram_write(self, addr, data):
         self.dbgr_write(ADDR.DBGR.XADDRH, addr >> 8)
         self.dbgr_write(ADDR.DBGR.XADDRL, addr & 0xff)
