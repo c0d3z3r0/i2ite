@@ -128,6 +128,17 @@ def connected(func, *args, **kwargs):
 
     return wrapper
 
+def limit_addr(_min, _max):
+    def dec_limit_addr(func):
+        @wraps(func)
+        def wrapper(self, addr, *args, **kwargs):
+            if not _min <= addr <= _max:
+                name = func.__name__.split("_")[0].upper()
+                raise(Exception(f"Error: {name} address invalid. Range is {_min} <= addr <= {_max}"))
+            return func(self, addr, *args, **kwargs)
+        return wrapper
+    return dec_limit_addr
+
 
 class I2ITE:
 
@@ -243,38 +254,30 @@ class I2ITE:
         self.dbgr_write(ADDR.DBGR.XDATA,  data)
 
     @connected
+    @limit_addr(0x80, 0xff)
     def sfr_read(self, addr):
-        if not 0x80 <= addr <= 0xff:
-            raise(Exception("Error: SFR address invalid. Range is 0x80 <= addr <= 0xff"))
-
         addr += ADDR.XRAM.SFR
         data = self.xram_read(addr)
 
         return data
 
     @connected
+    @limit_addr(0x80, 0xff)
     def sfr_write(self, addr, data):
-        if not 0x80 <= addr <= 0xff:
-            raise(Exception("Error: SFR address invalid. Range is 0x80 <= addr <= 0xff"))
-
         addr += ADDR.XRAM.SFR
         self.xram_write(addr, data)
 
     @connected
+    @limit_addr(0x00, 0xff)
     def iram_read(self, addr):
-        if addr > 0xff:
-            raise(Exception("Error: IRAM address invalid. Range is 0x00 < addr < 0xff"))
-
         addr += ADDR.XRAM.IRAM
         data = self.xram_read(addr)
 
         return data
 
     @connected
+    @limit_addr(0x00, 0xff)
     def iram_write(self, addr, data):
-        if addr > 0xff:
-            raise(Exception("Error: IRAM address invalid. Range is 0x00 < addr < 0xff"))
-
         addr += ADDR.XRAM.IRAM
         self.xram_write(addr, data)
 
