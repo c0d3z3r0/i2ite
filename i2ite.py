@@ -10,7 +10,7 @@ __copyright__   = 'Copyright (c) 2021 Michael Niewöhner'
 
 import time
 from argparse import ArgumentParser
-from functools import partial
+from functools import partial, wraps
 from pyftdi.ftdi import Ftdi
 from pyftdi.i2c import I2cController
 from pyftdi.gpio import GpioAsyncController
@@ -119,6 +119,7 @@ def hexdump(read_func, start, end):
         print(f'{yaddr:0{alen}x}: {hex_data}')
 
 def connected(func, *args, **kwargs):
+    @wraps(func)
     def wrapper(self, *args, **kwargs):
         if not self.connected:
             raise(Exception("Error: not connected"))
