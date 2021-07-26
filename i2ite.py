@@ -233,7 +233,7 @@ class I2ITE:
     @connected
     @limit_addr(0x00, 0xff)
     def dbgr_read(self, addr):
-        self.con.write(ADDR.I2C.CMD, [addr])
+        self.con.write(ADDR.I2C.CMD, [addr], relax=False)
         data = self.con.read(ADDR.I2C.DATA)[0]
 
         return data
@@ -241,7 +241,7 @@ class I2ITE:
     @connected
     @limit_addr(0x00, 0xff)
     def dbgr_write(self, addr, data):
-        self.con.write(ADDR.I2C.CMD, [addr])
+        self.con.write(ADDR.I2C.CMD, [addr], relax=False)
         self.con.write(ADDR.I2C.DATA, [data])
 
     @connected
