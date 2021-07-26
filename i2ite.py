@@ -94,7 +94,7 @@ class ADDR:
         IRAM                = 0xc000
 
 
-def hexdump(read_func, start, end):
+def hexdump(self, read_func, start, end):
     # round start down to 16 byte boundary
     start -= start % 0x10
     alen = 4 if end <= 0x10000 else 8
@@ -109,7 +109,7 @@ def hexdump(read_func, start, end):
             print(" " * (alen + 2), end="")
             print("-- -- -- --  -- -- -- --  -- -- -- --  -- -- -- --")
 
-        data = [read_func(addr) for addr in range(yaddr, yaddr + 0x10)]
+        data = [read_func(addr, relax=False) for addr in range(yaddr, yaddr + 0x10)]
 
         # cut in chunks of 4 byte each
         zip_data = zip(*[iter(data)]*4)
@@ -117,6 +117,8 @@ def hexdump(read_func, start, end):
         hex_data = '  '.join((map(lambda x: ' '.join(map("{:02x}".format, x)), zip_data)))
 
         print(f'{yaddr:0{alen}x}: {hex_data}')
+
+    self.relax()
 
 def connected(func, *args, **kwargs):
     @wraps(func)
@@ -152,7 +154,7 @@ class I2ITE:
         self._dumpable = ['dbgr', 'xram', 'sfr', 'iram']
         for d in self._dumpable:
             read_func = getattr(self, f'{d}_read')
-            setattr(self, f'{d}_dump', partial(hexdump, read_func))
+            setattr(self, f'{d}_dump', partial(hexdump, self, read_func))
 
     def close(self):
         if self.connected:
@@ -232,61 +234,61 @@ class I2ITE:
 
     @connected
     @limit_addr(0x00, 0xff)
-    def dbgr_read(self, addr):
+    def dbgr_read(self, addr, relax=True):
         self.con.write(ADDR.I2C.CMD, [addr], relax=False)
-        data = self.con.read(ADDR.I2C.DATA)[0]
+        data = self.con.read(ADDR.I2C.DATA, relax=relax)[0]
 
         return data
 
     @connected
     @limit_addr(0x00, 0xff)
-    def dbgr_write(self, addr, data):
+    def dbgr_write(self, addr, data, relax=True):
         self.con.write(ADDR.I2C.CMD, [addr], relax=False)
-        self.con.write(ADDR.I2C.DATA, [data])
+        self.con.write(ADDR.I2C.DATA, [data], relax=relax)
 
     @connected
     @limit_addr(0x0000, 0xffff)
-    def xram_read(self, addr):
-        self.dbgr_write(ADDR.DBGR.XADDRH, addr >> 8)
-        self.dbgr_write(ADDR.DBGR.XADDRL, addr & 0xff)
-        data = self.dbgr_read(ADDR.DBGR.XDATA)
+    def xram_read(self, addr, relax=True):
+        self.dbgr_write(ADDR.DBGR.XADDRH, addr >> 8, relax=False)
+        self.dbgr_write(ADDR.DBGR.XADDRL, addr & 0xff, relax=False)
+        data = self.dbgr_read(ADDR.DBGR.XDATA, relax=relax)
 
         return data
 
     @connected
     @limit_addr(0x0000, 0xffff)
-    def xram_write(self, addr, data):
-        self.dbgr_write(ADDR.DBGR.XADDRH, addr >> 8)
-        self.dbgr_write(ADDR.DBGR.XADDRL, addr & 0xff)
-        self.dbgr_write(ADDR.DBGR.XDATA,  data)
+    def xram_write(self, addr, data, relax=True):
+        self.dbgr_write(ADDR.DBGR.XADDRH, addr >> 8, relax=False)
+        self.dbgr_write(ADDR.DBGR.XADDRL, addr & 0xff, relax=False)
+        self.dbgr_write(ADDR.DBGR.XDATA,  data, relax=relax)
 
     @connected
     @limit_addr(0x80, 0xff)
-    def sfr_read(self, addr):
+    def sfr_read(self, addr, relax=True):
         addr += ADDR.XRAM.SFR
-        data = self.xram_read(addr)
+        data = self.xram_read(addr, relax=relax)
 
         return data
 
     @connected
     @limit_addr(0x80, 0xff)
-    def sfr_write(self, addr, data):
+    def sfr_write(self, addr, data, relax=True):
         addr += ADDR.XRAM.SFR
-        self.xram_write(addr, data)
+        self.xram_write(addr, data, relax=relax)
 
     @connected
     @limit_addr(0x00, 0xff)
-    def iram_read(self, addr):
+    def iram_read(self, addr, relax=True):
         addr += ADDR.XRAM.IRAM
-        data = self.xram_read(addr)
+        data = self.xram_read(addr, relax=relax)
 
         return data
 
     @connected
     @limit_addr(0x00, 0xff)
-    def iram_write(self, addr, data):
+    def iram_write(self, addr, data, relax=True):
         addr += ADDR.XRAM.IRAM
-        self.xram_write(addr, data)
+        self.xram_write(addr, data, relax=relax)
 
     @connected
     def disable_watchdog(self):
@@ -294,21 +296,21 @@ class I2ITE:
         self.xram_write(ADDR.XRAM.ETWCTRL, reg)
 
     @connected
-    def ecindar_addr(self, addr):
-        self.dbgr_write(ADDR.DBGR.ECINDAR3, addr >> 24 & 0xff)
-        self.dbgr_write(ADDR.DBGR.ECINDAR2, addr >> 16 & 0xff)
-        self.dbgr_write(ADDR.DBGR.ECINDAR1, addr >>  8 & 0xff)
-        self.dbgr_write(ADDR.DBGR.ECINDAR0, addr       & 0xff)
+    def ecindar_addr(self, addr, relax=True):
+        self.dbgr_write(ADDR.DBGR.ECINDAR3, addr >> 24 & 0xff, relax=False)
+        self.dbgr_write(ADDR.DBGR.ECINDAR2, addr >> 16 & 0xff, relax=False)
+        self.dbgr_write(ADDR.DBGR.ECINDAR1, addr >>  8 & 0xff, relax=False)
+        self.dbgr_write(ADDR.DBGR.ECINDAR0, addr       & 0xff, relax=relax)
 
     @connected
-    def ecindar_read(self, addr):
-        self.ecindar_addr(addr)
-        return self.dbgr_read(ADDR.DBGR.ECINDDR)
+    def ecindar_read(self, addr, relax=True):
+        self.ecindar_addr(addr, relax=False)
+        return self.dbgr_read(ADDR.DBGR.ECINDDR, relax=relax)
 
     @connected
-    def ecindar_write(self, addr, data):
-        self.ecindar_addr(addr)
-        self.dbgr_write(ADDR.DBGR.ECINDDR, data)
+    def ecindar_write(self, addr, data, relax=True):
+        self.ecindar_addr(addr, relax=False)
+        self.dbgr_write(ADDR.DBGR.ECINDDR, data, relax=relax)
 
     @connected
     def flash_enter_follow_mode(self):
