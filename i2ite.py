@@ -90,6 +90,8 @@ class ADDR:
         ETWCTRL             = 0x1f05
         ETWCTRL_EWDSCEN     = 1 << 5
         ETWCTRL_EWDSCMS     = 1 << 4
+        RSTC1               = 0x2007
+        RSTC1_RGPIO         = 1 << 1
         SFR                 = 0xbf00
         IRAM                = 0xff00
 
@@ -336,8 +338,7 @@ class I2ITE:
 
     @connected
     def ec_gpio_reset(self):
-        self.flash_enter_follow_mode()
-        self.flash_exit_follow_mode()
+        self.xram_write(ADDR.XRAM.RSTC1, ADDR.XRAM.RSTC1_GPIO)
 
     @connected
     def dbgr_disable(self):
