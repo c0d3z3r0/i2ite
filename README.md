@@ -23,6 +23,12 @@ FT2232H/FT4232H/FT232H            Battery connector
                                   (in this example: Clevo L140CU)
 ~~~
 
+## Dependencies
+
+I2ITE depends on [pyftdi](https://github.com/eblot/pyftdi).
+To be able to *really* relax the bus and allow other devices to communicate, you should use this
+additional patch: https://github.com/eblot/pyftdi/pull/314/commits/051ccb2d087fe43e92b9d688cf81649276db1d6b
+
 ## Example usage
 
 Read some data
