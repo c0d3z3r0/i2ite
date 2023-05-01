@@ -18,8 +18,6 @@ from pyftdi.gpio import GpioAsyncController
 # TODO
 # - implement eflash reading/writing
 # - implement SPI flash reading/writing
-# - implement ec reset
-# - reverse engineer ec instruction stepping for debugging
 
 '''
 ITE SMB/DBGR activation waveform
@@ -79,9 +77,25 @@ class ADDR:
         ECINDAR3            = 0x07
         ECINDDR             = 0x08
 
+        BREAK               = 0x27
+
+        PCL                 = 0x2a
+        PCM                 = 0x2b
+        PCH                 = 0x2c
+
         XADDRL              = 0x2e
         XADDRH              = 0x2f
         XDATA               = 0x30
+
+        BKP1L               = 0x40
+        BKP1M               = 0x41
+        BKP1H               = 0x42
+        BKP2L               = 0x43
+        BKP2M               = 0x44
+        BKP2H               = 0x45
+        BKP3L               = 0x46
+        BKP3M               = 0x47
+        BKP3H               = 0x48
 
     # XRAM addresses
     class XRAM:
@@ -95,6 +109,14 @@ class ADDR:
         SFR                 = 0xbf00
         IRAM                = 0xff00
 
+class BREAK:
+    NONE                    = 0 << 0
+    ANY                     = 1 << 0
+    MOVX                    = 1 << 1
+    BRANCH                  = 1 << 2
+    BRANCH_NO_DJNZ_CJNE     = 1 << 3
+    NOP                     = 1 << 4
+    RESET                   = 1 << 7
 
 def hexdump(self, read_func, start, end):
     # round start down to 16 byte boundary
@@ -154,6 +176,7 @@ class I2ITE:
         self.connected = False
         self.frequency = frequency
         self._xaddrh = -1
+        self._breakpoints = [-1, -1, -1]
 
         self._dumpable = ['dbgr', 'xram', 'sfr', 'iram']
         for d in self._dumpable:
@@ -339,6 +362,74 @@ class I2ITE:
     @connected
     def ec_gpio_reset(self):
         self.xram_write(ADDR.XRAM.RSTC1, ADDR.XRAM.RSTC1_GPIO)
+
+    @connected
+    def ec_reset(self):
+        self.dbgr_write(ADDR.DBGR.BREAK, BREAK.RESET)
+
+    @connected
+    def ec_break(self, typ=BREAK.ANY):
+        self.dbgr_write(ADDR.DBGR.BREAK, typ)
+
+    @connected
+    def ec_continue(self):
+        self.dbgr_write(ADDR.DBGR.BREAK, BREAK.NONE)
+
+    @connected
+    def ec_breakpoint_set(self, id, addr):
+        if id not in range(3):
+            raise(Exception("Error: invalid breakpoint id"))
+        if addr > 0x3ffff:
+            raise(Exception("Error: invalid breakpoint address"))
+
+        self.dbgr_write(ADDR.DBGR.BKP1H + (id * 3), addr >> 16 & 0x03, relax=False)
+        self.dbgr_write(ADDR.DBGR.BKP1M + (id * 3), addr >>  8 & 0xff, relax=False)
+        self.dbgr_write(ADDR.DBGR.BKP1L + (id * 3), addr       & 0xff, relax=True)
+        self._breakpoints[id] = addr
+
+    @property
+    @connected
+    def ec_breakpoints(self):
+        return self._breakpoints
+
+    @connected
+    def ec_breakpoint_add(self, addr):
+        if addr in self.ec_breakpoints:
+            return
+
+        try:
+            id = self.ec_breakpoints.index(-1)
+            self.ec_breakpoint_set(id, addr)
+
+        except ValueError:
+            raise(Exception("Error: no unused breakpoint available"))
+
+    @connected
+    def ec_breakpoint_remove(self, addr):
+        try:
+            id = self.ec_breakpoints.index(addr)
+            self.dbgr_write(ADDR.DBGR.BKP1H + (id * 3), 0xff, relax=True)
+            self._breakpoints[id] = -1
+
+        except ValueError:
+            raise(Exception("Error: breakpoint is not set"))
+
+    @connected
+    def ec_breakpoints_clear(self):
+        for i in range(3):
+            self.dbgr_write(ADDR.DBGR.BKP1H + (i * 3), 0xff, relax=False)
+
+        self._breakpoints = [-1, -1, -1]
+        self.relax()
+
+    @property
+    @connected
+    def ec_pc(self):
+        pc  = self.dbgr_read(ADDR.DBGR.PCH, relax=False) << 16 & 0x30000
+        pc |= self.dbgr_read(ADDR.DBGR.PCM, relax=False) <<  8
+        pc |= self.dbgr_read(ADDR.DBGR.PCL, relax=True)
+
+        return pc
 
     @connected
     def dbgr_disable(self):
