@@ -90,8 +90,8 @@ class ADDR:
         ETWCTRL             = 0x1f05
         ETWCTRL_EWDSCEN     = 1 << 5
         ETWCTRL_EWDSCMS     = 1 << 4
-        SFR                 = 0x8000
-        IRAM                = 0xc000
+        SFR                 = 0xbf00
+        IRAM                = 0xff00
 
 
 def hexdump(self, read_func, start, end):
