@@ -162,7 +162,7 @@ class I2ITE:
 
     def close(self):
         if self.connected:
-            self.con.close()
+            self.con.close(freeze=True)
             self.connected = False
 
     def _send_dbgr_waveform(self):
@@ -200,7 +200,7 @@ class I2ITE:
 
         except:
             self.connected = False
-            self.con.close()
+            self.con.close(freeze=True)
 
             raise(Exception("Error: connection failed"))
 
