@@ -99,6 +99,9 @@ class ADDR:
 
     # XRAM addresses
     class XRAM:
+        FLHCTRL3R           = 0x1063
+        FLHCTRL3R_FFSPITRI  = 1 << 0
+        FLHCTRL3R_SIFE      = 1 << 3
         SLVISELR            = 0x1c34
         SLVISELR_OVRSMDBG   = 1 << 4
         ETWCTRL             = 0x1f05
@@ -346,22 +349,36 @@ class I2ITE:
         self.dbgr_write(ADDR.DBGR.ECINDDR, data, relax=relax)
 
     @connected
-    def flash_enter_follow_mode(self):
-        addr = 0x7ffffe00
+    def flash_enter_follow_mode(self, ext=False):
+        addr = 0x7ffffe00 | (int(ext) << 31)
         self.ecindar_write(addr, 0x00)
 
     @connected
     def flash_exit_follow_mode(self):
         self.ecindar_addr(0x00000000)
 
-    @property
-    @connected
-    def flash_id(self):
-        self.flash_enter_follow_mode()
-        self.ecindar_write(0x7ffffd00, 0x9f)
+    def _flash_id(self, ext=False):
+        if ext:
+            reg = self.xram_read(ADDR.XRAM.FLHCTRL3R)
+            reg &= ~ADDR.XRAM.FLHCTRL3R_FFSPITRI
+            reg |= ADDR.XRAM.FLHCTRL3R_SIFE
+            self.xram_write(ADDR.XRAM.FLHCTRL3R, reg)
+        self.flash_enter_follow_mode(ext)
+        addr = 0x7ffffd00 | (int(ext) << 31)
+        self.ecindar_write(addr, 0x9f)
         id = bytes(self.con.read(ADDR.I2C.DATA, 3))
         self.flash_exit_follow_mode()
         return id
+
+    @property
+    @connected
+    def flash_id(self):
+        return self._flash_id(False)
+
+    @property
+    @connected
+    def flash_id_ext(self):
+        return self._flash_id(True)
 
     @connected
     def ec_stop(self):
