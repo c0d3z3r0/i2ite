@@ -354,6 +354,15 @@ class I2ITE:
     def flash_exit_follow_mode(self):
         self.ecindar_addr(0x00000000)
 
+    @property
+    @connected
+    def flash_id(self):
+        self.flash_enter_follow_mode()
+        self.ecindar_write(0x7ffffd00, 0x9f)
+        id = bytes(self.con.read(ADDR.I2C.DATA, 3))
+        self.flash_exit_follow_mode()
+        return id
+
     @connected
     def ec_stop(self):
         self.flash_enter_follow_mode()
